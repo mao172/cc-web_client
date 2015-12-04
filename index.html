@@ -1,0 +1,451 @@
+<html>
+<head>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+  <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css" type="text/css">
+  <link rel="stylesheet" href="http://ajax.aspnetcdn.com/ajax/jquery.ui/1.9.0/themes/redmond/jquery-ui.css" type="text/css">
+  <link rel="stylesheet" href="http://ajax.aspnetcdn.com/ajax/jquery.ui/1.9.0/themes/cupertino/jquery-ui.css" type="text/css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
+  <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/s/ju/dt-1.10.10/datatables.min.css"/>
+  <script type="text/javascript" src="https://cdn.datatables.net/s/ju/dt-1.10.10/datatables.min.js"></script>
+  <script>
+  $(function() {
+    $.widget( 'custom.table', {
+      defaultElement: "<table>",
+      // default options
+      options: {
+        scrollX: false,
+        scrollY: false,
+        display: true,
+        cellBorder: true,
+        hover: true,
+
+        columns: [],
+        selectable: true,
+        source: null,
+
+        // callback
+        selectChange: null
+      },
+
+      _create: function() {
+        this.wrapper = $('<div>')
+          .addClass("custom-table")
+          .insertAfter(this.element)
+
+        this._createDataTable();
+
+        this._initSource();
+      },
+
+      _createDataTable: function () {
+        var me = this;
+
+        //display cell-border hover
+        if ( this.options.display ) {
+          $(this.element).addClass('display');
+        }
+
+        if ( this.options.cellBorder ) {
+          $(this.element).addClass('cell-border');
+        }
+
+        if ( this.options.hover ) {
+          $(this.element).addClass('hover');
+        }
+
+        var table = $(this.element).DataTable({
+            scrollX: this.options.scrollX,
+            scrollY: this.options.scrollY,
+            data: [],
+            columns: this.options.columns
+        });
+
+        if (this.options.selectable) {
+
+        $(this.element).find('tbody').on('click', 'tr', function() {
+            me._click(this);
+            });
+
+        }
+
+      },
+
+      _click: function(element) {
+        var table = $(this.element).DataTable();
+
+        if ( $(element).hasClass('selected') ) {
+            $(element).removeClass('selected');
+
+            this._trigger('selectChange', null, { data: {}, before: element });
+        } else {
+            var before = table.$('tr.selected').removeClass('selected');
+            $(element).addClass('selected');
+
+            var data = table.row( element ).data();
+           // console.log( data );
+            this._trigger('selectChange', null, { data: data, before: before, after: element });
+        }
+      },
+
+      _initSource: function() {
+          if (typeof this.options.source === "string") {
+            this.source = function (request, response) {
+              url = this.options.source;
+
+              $.ajax({
+                  url: url,
+                  data: request,
+                  dataType: 'json'
+              })
+              .done(function(data, status, jqXHR) {
+                  response(data);
+              })
+              .fail(function(jqXHR, status, e) {
+                  response([])
+              });
+            }
+          } else {
+            this.source = this.options.source;
+          }
+      },
+
+      reload: function (params) {
+        return this._reload(params);
+      },
+
+      _reload: function (params) {
+        this.source( params, this._response());
+        this._trigger('selectChange', null, { data: {}});
+      },
+
+      _response: function() {
+         return $.proxy( function(content) {
+             this.__response(content);
+             }, this );
+      },
+
+      __response: function (content) {
+          var table = $(this.element).DataTable();
+
+          table.clear();
+          table.rows.add(content).draw();
+      },
+
+      clear: function () {
+           var table = $(this.element).DataTable();
+
+           table.clear().draw();
+      }
+
+    });
+  });
+  </script>
+  <script>
+  $(function() {
+      $( "#tabs" ).tabs({
+          activate: function(event, ui) {
+              ui.newPanel.find('table[id]').each(function() {
+                  $(this).DataTable().draw();
+              });
+          }
+      });
+      $( "#tabs2").tabs({
+          activate: function(event, ui) {
+              ui.newPanel.find('table[id]').each(function() {
+                  $(this).DataTable().draw();
+              });
+          }
+      });
+
+    $("#token-submit").button().click( function( e ){
+      email = $("#t-token").find(":text[name='email']").val();
+      pswd = $("#t-token").find(":password[name='password']").val();
+      $.ajax({
+        method: "POST",
+        url: "/api/v1/tokens",
+        headers: {
+          'Accept': 'Application/json'
+        },
+        dataType: 'json',
+        data: {
+          email: email,
+          password: pswd
+        },
+        error: function(request, status, error) {
+          alert(request.status);
+        }
+      })
+      .done( function(data, status, jqXHR) {
+        $("#auth_token").val(data.auth_token);
+
+        reload_account_list();
+        reload_project_list();
+      })
+      .fail( function(jqXHR, status, e) {
+        alert(status);
+      });
+    });
+
+    /* --- account table  --- */
+    $('#tbl_account').table({
+        scrollX: true,
+        columns: [
+          {title: 'id', data: 'id'},
+          {title: 'email', data: 'email'},
+          {title: 'name', data: 'name'},
+          {title: 'admin', data: 'admin'},
+          {title: 'created_at', data: 'created_at'},
+          {title: 'updated_at', data: 'updated_at'}
+        ],
+        source: '/api/v1/accounts'
+    });
+
+    /* --- project table  --- */
+    $("#tbl_project").table({
+        scrollX: true,
+        columns: [
+            {title: 'id', data: 'id'},
+            {title: 'name', data: 'name'},
+            {title: 'description', data: 'description'},
+            {title: 'created_at', data: 'created_at'},
+            {title: 'updated_at', data: 'updated_at'}
+        ],
+        source: '/api/v1/projects',
+        selectChange: function (event, ui) {
+          var project_id = ui.data.id;
+
+          $('#project_id').val(project_id);
+          if ( project_id ) {
+            //reload
+            reload_cloud_list();
+          } else {
+            //clear
+            $('#tbl_cloud').table('clear');
+          }
+          // reload
+          var params = {
+            project_id: $('#project_id').val(),
+            auth_token: $("#auth_token").val()
+          };
+            $('#tbl_pattern').table('reload', params);
+
+            $('#tbl_system').table('reload', params);
+        }
+    });
+
+    $('#btn_pj_create').button().click( function() {
+    });
+    $('#btn_pj_update').button();
+    $('#btn_pj_delete').button();
+    $('#btn_pj_reload').button();
+
+    /* --- cloud table --- */
+    $('#tbl_cloud').table({
+        scrollX: true,
+        columns: [
+            {title: 'id', data: 'id'},
+            {title: 'project_id', data: 'project_id', "visible": false},
+            {title: 'name', data: 'name'},
+            {title: 'description', data: 'description'},
+            {title: 'type', data: 'type'},
+            {title: 'entry_point', data: 'entry_point'},
+            {title: 'key', data: 'key'},
+            {title: 'secret', data: 'secret'},
+            {title: 'tenant_name', data: 'tenant_name'},
+            {title: 'created_at', data: 'created_at'},
+            {title: 'updated_at', data: 'updated_at'}
+        ],
+        source: '/api/v1/clouds',
+        selectChange: function (event, ui) {
+          var newVal = ui.data.id;
+
+      $('#cloud_id').val(newVal);
+
+      if (newVal) {
+        reload_baseImage_list();
+      } else {
+        // clear
+        $('#tbl_baseImage').table('clear');
+      }
+        }
+    });
+
+    $('#cloud-details').accordion({
+        heightStyle: "content"
+    });
+
+    /*--- base-image table ---*/
+    $('#tbl_baseImage').table({
+        scrollX: true,
+        columns: [
+            {title: 'id', data: 'id'},
+            {title: 'cloud_id', data: 'cloud_id', visible: false},
+            {title: 'os_version', data: 'os_version'},
+            {title: 'source_image', data: 'source_image'},
+            {title: 'ssh_username', data: 'ssh_username'},
+            {title: 'created_at', data: 'created_at'},
+            {title: 'updated_at', data: 'updated_at'}
+        ],
+        source: '/api/v1/base_images',
+        selectChange: function (event, ui) {}
+    });
+
+    /* --- pattern table --- */
+    $('#tbl_pattern').table({
+        scrollX: true,
+        columns: [
+            {title: 'id', data: 'id'},
+            {title: 'name', data: 'name'},
+            {title: 'type', data: 'type'},
+            {title: 'protocol', data: 'protocol'},
+            {title: 'url', data: 'url'},
+            {title: 'revision', data: 'revision'},
+            {title: 'project_id', data: 'project_id'},
+            {title: 'roles', data: 'roles'},
+            {title: 'created_at', data: 'created_at'},
+            {title: 'updated_at', data: 'updated_at'},
+        ],
+        source: '/api/v1/patterns',
+        selectChange: null
+    });
+
+    /* --- blueprint table --- */
+
+    /* --- system table ---*/
+    $('#tbl_system').table({
+        scrollX: true,
+        columns: [
+            {title: 'id', data: 'id'},
+            {title: 'project_id', data: 'project_id'},
+            {title: 'primary_env', data: 'primary_environment_id'},
+            {title: 'name', data: 'name'},
+            {title: 'description', data: 'description'},
+            {title: 'domain', data: 'domain'},
+            {title: 'created_at', data: 'created_at'},
+            {title: 'updated_at', data: 'updated_at'},
+        ],
+        source: '/api/v1/systems',
+        selectChange: function (event, ui) {}
+    });
+  });
+
+function reload_account_list() {
+  $('#tbl_account').table('reload', { auth_token: $("#auth_token").val() });
+}
+
+function reload_project_list() {
+  $('#project_id').val('');
+  $('#tbl_project').table('reload', { auth_token: $("#auth_token").val() });
+}
+
+function reload_cloud_list() {
+  $('#cloud_id').val('');
+  $('#tbl_cloud').table('reload',
+      { project_id: $('#project_id').val(), auth_token: $("#auth_token").val() });
+}
+
+function reload_baseImage_list() {
+  $('#tbl_baseImage').table('reload',
+      { project_id: $('#project_id').val(),
+        cloud_id: $('#cloud_id').val(),
+        auth_token: $("#auth_token").val() });
+}
+  </script>
+</head>
+<body>
+  <input type="hidden" name="auth_token" id="auth_token" />
+  <input type="hidden" name="project_id" id="project_id" />
+  <input type="hidden" name="cloud_id" id="cloud_id" />
+  <div id="tabs">
+    <ul>
+      <li><a href="#tabs-1">Nunc tincidunt</a></li>
+      <li><a href="#t-projects">Projects</a></li>
+      <li><a href="#t-accounts">Accounts</a></li>
+      <li><a href="#t-token">Token</a></li>
+    </ul>
+    <div id="tabs-1">
+    </div>
+    <div id="t-projects">
+      <div id="project-list">
+        <div>
+          <button id="btn_pj_create">new</button>
+          <button id="btn_pj_update">edit</button>
+          <button id="btn_pj_delete">delete</button>
+          <button id="btn_pj_reload">reload</button>
+        </div>
+        <div>
+          <table id="tbl_project" cellspacing="0" width="100%">
+          </table>
+        </div>
+      </div>
+      <p></p>
+      <div id="project-details">
+        <div id="tabs2">
+          <ul>
+            <li><a href="#t-cloud">Cloud</a></li>
+            <li><a href="#t-pattern">Pattern</a></li>
+            <li><a href="#t-blueprint">Blueprint</a></li>
+            <li><a href="#t-system">System</a></li>
+            <li><a href="#t-role">Role</a></li>
+            <li><a href="#t-pj_account">Account</a></li>
+          </ul>
+          <div id="t-cloud">
+            <div>
+              <table id="tbl_cloud" cellspacing="0" width="100%">
+              </table>
+            </div>
+            <p></p>
+            <div id="cloud-details">
+              <h3>BaseImages</h3>
+              <div>
+                <table id="tbl_baseImage" cellspacing="0" width="100%">
+                </table>
+              </div>
+            </div>
+          </div>
+          <div id="t-pattern">
+            <div>
+              <table id="tbl_pattern" cellspacing="0" width="100%"></table>
+            </div>
+          </div>
+          <div id="t-blueprint">
+          </div>
+          <div id="t-system">
+            <div>
+              <table id="tbl_system" cellspacing="0" width="100%"></table>
+            </div>
+          </div>
+          <div id="t-role">
+          </div>
+          <div id="t-pj_account">
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="t-accounts">
+      <div id="account-list">
+        <div class="header">
+          <button id="account-reload">reload</button>
+        </div>
+        <div class="content">
+          <table id="tbl_account" class="display cell-border hover" cellspacing="0" width="100%">
+          </table>
+        </div>
+      </div>
+    </div>
+    <div id="t-token">
+      <div>
+        <label for="email">email:</label>
+        <input name="email" />
+      </div>
+      <div>
+        <label for="password">password:</label>
+        <input type="password" name="password" />
+      </div>
+      <div>
+        <button id="token-submit">submit</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
