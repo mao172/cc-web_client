@@ -27,6 +27,14 @@ $(function() {
       this._initSource();
     },
 
+    _setOption: function( key, value ) {
+      this._super(key, value);
+
+      if ( key == 'source' ) {
+        this._initSource();
+      }
+    },
+
     _createDataTable: function () {
       var me = this;
 
